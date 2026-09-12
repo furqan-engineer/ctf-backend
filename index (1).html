@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ctf-solver_</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10131a;
+    --panel:#161a23;
+    --panel-2:#1c212c;
+    --border:#2a2f3b;
+    --text:#e9e6dd;
+    --muted:#8b93a3;
+    --amber:#ffb300;
+    --amber-dim:#8a6a1f;
+    --green:#4ade80;
+    --red:#f0665c;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+  body{ min-height:100vh; }
+  a{ color:var(--amber); }
+
+  .wrap{ max-width:760px; margin:0 auto; padding:40px 20px 80px; }
+
+  /* header */
+  .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:34px; }
+  .brand{ font-size:20px; font-weight:600; letter-spacing:0.2px; }
+  .brand .cursor{ color:var(--amber); }
+  .status{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.ready{ background:var(--muted); }
+  .dot.running{ background:var(--amber); animation:pulse 1.2s ease-in-out infinite; }
+  .dot.done{ background:var(--green); }
+  .dot.error{ background:var(--red); }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+
+  /* config row (collapsed by default feel: small, quiet) */
+  .config{ margin-bottom:22px; font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .config input{
+    background:transparent; border:none; border-bottom:1px solid var(--border);
+    color:var(--muted); font-family:inherit; font-size:12.5px; padding:2px 2px;
+    width:280px;
+  }
+  .config input:focus{ outline:none; border-bottom-color:var(--amber); color:var(--text); }
+
+  /* panels */
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:3px;
+    padding:22px; margin-bottom:18px;
+  }
+  .panel + .panel{ margin-top:0; }
+  label.field-label{ display:block; font-size:13px; color:var(--muted); margin-bottom:8px; }
+
+  textarea{
+    width:100%; min-height:96px; resize:vertical;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:2px;
+    color:var(--text); font-family:inherit; font-size:14px; line-height:1.5;
+    padding:12px; margin-bottom:16px;
+  }
+  textarea:focus{ outline:none; border-color:var(--amber-dim); }
+  textarea::placeholder{ color:#565d6c; }
+
+  .drop{
+    border:1px dashed var(--border); border-radius:2px; padding:20px;
+    text-align:left; color:var(--muted); font-size:13px; cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop.drag{ border-color:var(--amber); background:rgba(255,179,0,0.05); color:var(--text); }
+  .drop input{ display:none; }
+
+  .files{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    display:flex; align-items:center; gap:8px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:2px; padding:5px 9px; font-size:12.5px;
+  }
+  .chip button{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-family:inherit;
+    font-size:13px; line-height:1; padding:0;
+  }
+  .chip button:hover{ color:var(--red); }
+
+  .run-row{ display:flex; align-items:center; justify-content:space-between; margin-top:18px; }
+  .hint{ font-size:12px; color:var(--muted); }
+  button.run{
+    background:var(--amber); color:#1a1200; border:none; border-radius:2px;
+    font-family:inherit; font-weight:600; font-size:14px; padding:11px 20px; cursor:pointer;
+    transition:filter .15s ease;
+  }
+  button.run:hover{ filter:brightness(1.08); }
+  button.run:disabled{ background:var(--border); color:var(--muted); cursor:not-allowed; }
+
+  /* results */
+  .results{ display:none; }
+  .results.show{ display:block; }
+
+  .flag-card{
+    border:1px solid var(--amber-dim); background:linear-gradient(180deg, rgba(255,179,0,.07), rgba(255,179,0,0));
+    border-radius:3px; padding:20px 22px; margin-bottom:18px;
+  }
+  .flag-card .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .flag-card .v{ font-size:19px; font-weight:600; color:var(--amber); word-break:break-all; }
+  .flag-card .v.none{ color:var(--muted); font-weight:500; font-size:15px; }
+
+  .reasoning{ font-size:13.5px; line-height:1.7; color:var(--text); white-space:pre-wrap; }
+
+  .meta-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+  .tag{
+    font-size:11.5px; color:var(--muted); border:1px solid var(--border);
+    border-radius:2px; padding:3px 8px;
+  }
+
+  .log{ display:flex; flex-direction:column; gap:0; }
+  .log-entry{ border-bottom:1px solid var(--border); }
+  .log-entry:last-child{ border-bottom:none; }
+  .log-head{
+    display:flex; align-items:center; gap:10px; padding:10px 2px; cursor:pointer; user-select:none;
+    font-size:13px;
+  }
+  .log-head .idx{ color:var(--muted); width:22px; flex:none; }
+  .log-head .tool{ font-weight:600; flex:1; }
+  .log-head .state{ font-size:11.5px; }
+  .log-head .state.ok{ color:var(--green); }
+  .log-head .state.bad{ color:var(--muted); }
+  .log-head .chev{ color:var(--muted); font-size:11px; width:14px; text-align:center; }
+  .log-body{
+    display:none; padding:0 2px 14px 32px; font-size:12.5px; color:var(--muted);
+    white-space:pre-wrap; line-height:1.55; word-break:break-word;
+  }
+  .log-entry.open .log-body{ display:block; }
+  .log-entry.open .chev{ color:var(--amber); }
+
+  .empty{ color:var(--muted); font-size:13px; padding:6px 2px 2px; }
+
+  footer{ margin-top:26px; font-size:12px; color:#4a5164; text-align:left; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="top">
+      <div class="brand">ctf-solver<span class="cursor">_</span></div>
+      <div class="status"><span class="dot ready" id="statusDot"></span><span id="statusText">ready</span></div>
+    </div>
+
+    <div class="config">
+      backend:
+      <input id="apiBase" value="http://localhost:8000" spellcheck="false" />
+    </div>
+
+    <div class="panel">
+      <label class="field-label">describe the challenge (optional if you're only uploading a file)</label>
+      <textarea id="promptText" placeholder="e.g. found this png on the challenge site, title was &quot;nothing to see here&quot;... or paste a launch-instance URL / nc host port line directly here"></textarea>
+
+      <label class="field-label">files (optional — skip this if the challenge only gave you a URL or nc target)</label>
+      <div class="drop" id="dropZone">
+        drag files here, or click to browse — images, archives, pcaps, raw dumps, anything
+        <input id="fileInput" type="file" multiple />
+      </div>
+      <div class="files" id="fileList"></div>
+
+      <div class="run-row">
+        <span class="hint" id="runHint">&nbsp;</span>
+        <button class="run" id="runBtn">run analysis</button>
+      </div>
+    </div>
+
+    <div class="results" id="results">
+
+      <div class="flag-card">
+        <div class="k">flag</div>
+        <div class="v" id="flagValue">—</div>
+      </div>
+
+      <div class="panel">
+        <label class="field-label">reasoning</label>
+        <div class="reasoning" id="reasoningText"></div>
+      </div>
+
+      <div class="panel">
+        <label class="field-label">categories detected</label>
+        <div class="meta-row" id="categoryTags"></div>
+
+        <label class="field-label">tool log</label>
+        <div class="log" id="toolLog"></div>
+      </div>
+
+    </div>
+
+    <footer>polls the backend's /api/jobs/&#123;id&#125; endpoint every 2s while a job runs.</footer>
+  </div>
+
+<script>
+(function(){
+  const apiBaseInput = document.getElementById('apiBase');
+  const stored = localStorage.getItem('ctf_api_base');
+  if (stored) apiBaseInput.value = stored;
+  apiBaseInput.addEventListener('change', () => localStorage.setItem('ctf_api_base', apiBaseInput.value.trim()));
+
+  const promptText = document.getElementById('promptText');
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileList = document.getElementById('fileList');
+  const runBtn = document.getElementById('runBtn');
+  const runHint = document.getElementById('runHint');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const results = document.getElementById('results');
+  const flagValue = document.getElementById('flagValue');
+  const reasoningText = document.getElementById('reasoningText');
+  const categoryTags = document.getElementById('categoryTags');
+  const toolLog = document.getElementById('toolLog');
+
+  let files = [];
+  let pollTimer = null;
+
+  function renderFiles(){
+    fileList.innerHTML = '';
+    files.forEach((f, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.innerHTML = `<span>${f.name}</span>`;
+      const btn = document.createElement('button');
+      btn.textContent = '×';
+      btn.onclick = () => { files.splice(i,1); renderFiles(); };
+      chip.appendChild(btn);
+      fileList.appendChild(chip);
+    });
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    files = files.concat(Array.from(e.target.files));
+    renderFiles();
+    fileInput.value = '';
+  });
+  ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, (e) => {
+    e.preventDefault(); dropZone.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, (e) => {
+    e.preventDefault(); dropZone.classList.remove('drag');
+  }));
+  dropZone.addEventListener('drop', (e) => {
+    files = files.concat(Array.from(e.dataTransfer.files));
+    renderFiles();
+  });
+
+  function setStatus(state, label){
+    statusDot.className = 'dot ' + state;
+    statusText.textContent = label;
+  }
+
+  function apiBase(){
+    return (apiBaseInput.value || '').trim().replace(/\/+$/, '');
+  }
+
+  async function runAnalysis(){
+    if (!promptText.value.trim() && files.length === 0){
+      runHint.textContent = 'add a description or at least one file first';
+      return;
+    }
+    runHint.textContent = '';
+    runBtn.disabled = true;
+    results.classList.remove('show');
+    toolLog.innerHTML = '';
+    setStatus('running', 'submitting...');
+
+    const form = new FormData();
+    form.append('text', promptText.value);
+    files.forEach(f => form.append('files', f));
+
+    try {
+      const res = await fetch(`${apiBase()}/api/solve`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error(`solve request failed (${res.status})`);
+      const { job_id } = await res.json();
+      setStatus('running', 'analyzing...');
+      poll(job_id);
+    } catch (err) {
+      setStatus('error', err.message || 'request failed');
+      runBtn.disabled = false;
+    }
+  }
+
+  function poll(jobId){
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${apiBase()}/api/jobs/${jobId}`);
+        if (!res.ok) throw new Error(`job lookup failed (${res.status})`);
+        const job = await res.json();
+
+        if (job.status === 'pending' || job.status === 'running'){
+          setStatus('running', job.status === 'pending' ? 'queued...' : 'analyzing...');
+          return;
+        }
+        clearInterval(pollTimer);
+        runBtn.disabled = false;
+
+        if (job.status === 'error'){
+          setStatus('error', job.error || 'analysis failed');
+          return;
+        }
+        setStatus('done', 'done');
+        renderResult(job.result);
+      } catch (err) {
+        clearInterval(pollTimer);
+        runBtn.disabled = false;
+        setStatus('error', err.message || 'lost connection to job');
+      }
+    }, 2000);
+  }
+
+  function renderResult(result){
+    results.classList.add('show');
+    flagValue.textContent = result.flag || 'not found';
+    flagValue.classList.toggle('none', !result.flag);
+    reasoningText.textContent = result.reasoning || '(no reasoning returned)';
+
+    categoryTags.innerHTML = '';
+    (result.categories || []).forEach(c => {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = c;
+      categoryTags.appendChild(tag);
+    });
+    if ((result.categories || []).length === 0){
+      categoryTags.innerHTML = '<span class="empty">none matched</span>';
+    }
+
+    toolLog.innerHTML = '';
+    const tools = result.tool_results || [];
+    if (tools.length === 0){
+      toolLog.innerHTML = '<div class="empty">no tools were run</div>';
+    }
+    tools.forEach((t, i) => {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <div class="log-head">
+          <span class="idx">${String(i+1).padStart(2,'0')}</span>
+          <span class="tool">${t.tool}</span>
+          <span class="state ${t.ok ? 'ok' : 'bad'}">${t.summary}</span>
+          <span class="chev">▸</span>
+        </div>
+        <div class="log-body">${(t.detail || '(no output)').replace(/</g,'&lt;')}</div>
+      `;
+      entry.querySelector('.log-head').addEventListener('click', () => entry.classList.toggle('open'));
+      toolLog.appendChild(entry);
+    });
+  }
+
+  runBtn.addEventListener('click', runAnalysis);
+})();
+</script>
+</body>
+</html>
